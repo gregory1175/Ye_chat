@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum ConversationMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Role {
+  id   String @id @default(uuid()) @db.Uuid
+  name String @unique
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id                 String    @id @default(uuid()) @db.Uuid
+  roleId             String    @db.Uuid
+  login              String    @unique
+  passwordHash       String
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(true)
+  lastLoginAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  role                Role                 @relation(fields: [roleId], references: [id])
+  profile             EmployeeProfile?
+  auditLogs           AuditLog[]
+  crmEmployeeLinks    CrmEmployeeLink[]
+  conversations       Conversation[]       @relation("ConversationCreatedBy")
+  conversationMembers ConversationMember[]
+  messages            Message[]            @relation("MessageSender")
+
+  @@index([roleId])
+  @@map("users")
+}
+
+model EmployeeProfile {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @unique @db.Uuid
+  firstName  String
+  lastName   String
+  middleName String?
+  nickname   String
+  email      String?
+  phone      String?
+  avatar     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("employee_profiles")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @db.Uuid
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model CrmConnection {
+  id          String   @id @default(uuid()) @db.Uuid
+  provider    String
+  name        String
+  config      Json?
+  credentials Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employeeLinks CrmEmployeeLink[]
+
+  @@map("crm_connections")
+}
+
+model CrmEmployeeLink {
+  id              String   @id @default(uuid()) @db.Uuid
+  crmConnectionId String   @db.Uuid
+  userId          String   @db.Uuid
+  externalId      String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  crmConnection CrmConnection @relation(fields: [crmConnectionId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([crmConnectionId, userId])
+  @@unique([crmConnectionId, externalId])
+  @@index([userId])
+  @@map("crm_employee_links")
+}
+
+model Conversation {
+  id        String           @id @default(uuid()) @db.Uuid
+  type      ConversationType
+  name      String?
+  createdBy String           @db.Uuid
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  creator  User                 @relation("ConversationCreatedBy", fields: [createdBy], references: [id])
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([createdBy])
+  @@index([updatedAt])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id                String                 @id @default(uuid()) @db.Uuid
+  conversationId    String                 @db.Uuid
+  userId            String                 @db.Uuid
+  role              ConversationMemberRole
+  lastReadMessageId String?                @db.Uuid
+  joinedAt          DateTime               @default(now())
+  leftAt            DateTime?
+
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadMessage Message?     @relation("LastReadMessage", fields: [lastReadMessageId], references: [id], onDelete: SetNull)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([lastReadMessageId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String    @id @default(uuid()) @db.Uuid
+  conversationId String    @db.Uuid
+  senderId       String    @db.Uuid
+  content        String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  conversation Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                 @relation("MessageSender", fields: [senderId], references: [id])
+  readBy       ConversationMember[] @relation("LastReadMessage")
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("messages")
+}
