@@ -6,9 +6,16 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { IamModule } from './iam/iam.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { EmployeesModule } from './employees/employees.module';
 
 @Module({
-  imports: [ScheduleModule.forRoot(), DatabaseModule, AuthModule, IamModule],
+  imports: [
+    ScheduleModule.forRoot(),
+    DatabaseModule,
+    AuthModule,
+    IamModule,
+    EmployeesModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
