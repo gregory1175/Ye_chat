@@ -1,8 +1,10 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
   ParseUUIDPipe,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 
@@ -11,6 +13,7 @@ import { JwtAuthGuard } from '../iam/guards/jwt-auth/jwt-auth.guard';
 import { PasswordChangeGuard } from '../iam/guards/password-change/password-change.guard';
 import { Roles } from '../iam/decorators/roles.decorator';
 import { RolesGuard } from '../iam/guards/roles/roles.guard';
+import { CreateEmployeeDto } from './dto/create-employee.dto';
 
 @Controller('employees')
 @UseGuards(JwtAuthGuard, PasswordChangeGuard, RolesGuard)
@@ -26,5 +29,11 @@ export class EmployeesController {
   @Get(':id')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.employeesService.findOne(id);
+  }
+
+  @Post()
+  @Roles('ADMIN')
+  create(@Body() dto: CreateEmployeeDto) {
+    return this.employeesService.create(dto);
   }
 }
